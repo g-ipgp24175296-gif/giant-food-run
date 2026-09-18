@@ -1,0 +1,2192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>GIANT FOOD RUN - Official Game Website</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Three.js Library -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+  <!-- MediaPipe Pose for Front Camera AR Motion Control -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+  
+  <!-- Google Fonts for Game Typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Outfit:wght@400;600;800;900&display=swap" rel="stylesheet">
+  
+  <style>
+    * {
+      touch-action: manipulation;
+      user-select: none;
+      -webkit-user-select: none;
+      box-sizing: border-box;
+    }
+    
+    body, html {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #0c101c;
+      font-family: 'Outfit', sans-serif;
+    }
+    
+    .game-font {
+      font-family: 'Fredoka One', cursive, sans-serif;
+    }
+    
+    #game-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 10;
+    }
+    
+    /* Screen Shake Animation */
+    @keyframes screenShake {
+      0% { transform: translate(0, 0) rotate(0deg); }
+      20% { transform: translate(-8px, 6px) rotate(-1deg); }
+      40% { transform: translate(8px, -6px) rotate(1deg); }
+      60% { transform: translate(-5px, 3px) rotate(-0.5deg); }
+      80% { transform: translate(5px, -3px) rotate(0.5deg); }
+      100% { transform: translate(0, 0) rotate(0deg); }
+    }
+    
+    .shake {
+      animation: screenShake 0.4s cubic-bezier(.36,.07,.19,.97) both;
+    }
+
+    /* Red Flash Overlay for Hits */
+    #damage-flash {
+      pointer-events: none;
+      transition: opacity 0.2s ease-out;
+    }
+
+    /* Floating Score Popups */
+    .popup-text {
+      position: absolute;
+      font-family: 'Fredoka One', cursive;
+      color: #a7f3d0;
+      text-shadow: 2px 2px 0px #000, -2px -2px 0px #000, 2px -2px 0px #000, -2px 2px 0px #000;
+      font-size: 1.8rem;
+      pointer-events: none;
+      animation: floatUp 0.8s ease-out forwards;
+      z-index: 50;
+    }
+
+    .popup-text-high {
+      color: #fef08a;
+      font-size: 2.3rem;
+      text-shadow: 0 0 12px rgba(254, 240, 138, 0.9), 2px 2px 0px #000, -2px -2px 0px #000, 2px -2px 0px #000, -2px 2px 0px #000;
+    }
+
+    @keyframes floatUp {
+      0% { opacity: 1; transform: translateY(0) scale(0.8); }
+      50% { opacity: 1; transform: translateY(-30px) scale(1.2); }
+      100% { opacity: 0; transform: translateY(-60px) scale(1); }
+    }
+
+    /* Glassmorphic UI Panels */
+    .glass-panel {
+      background: rgba(15, 23, 42, 0.92);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 2px solid rgba(244, 212, 230, 0.22);
+      box-shadow: 0 25px 50px rgba(0, 0, 0, 0.7);
+    }
+
+    /* Glow Buttons */
+    .btn-glow-pastel {
+      box-shadow: 0 0 25px rgba(244, 114, 182, 0.4), inset 0 2px 4px rgba(255, 255, 255, 0.4);
+      transition: all 0.15s ease;
+    }
+    .btn-glow-pastel:active {
+      transform: scale(0.95);
+      box-shadow: 0 0 12px rgba(244, 114, 182, 0.3);
+    }
+
+    /* HUD Button Styling */
+    .btn-icon-hud {
+      background: rgba(15, 23, 42, 0.75);
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      backdrop-filter: blur(8px);
+      transition: all 0.2s ease;
+    }
+    .btn-icon-hud:active {
+      transform: scale(0.9);
+    }
+
+    /* Countdown Animated Overlay */
+    @keyframes countPulse {
+      0% { transform: scale(0.3) rotate(-10deg); opacity: 0; }
+      50% { transform: scale(1.35) rotate(4deg); opacity: 1; }
+      80% { transform: scale(0.95) rotate(-2deg); opacity: 1; }
+      100% { transform: scale(1) rotate(0deg); opacity: 1; }
+    }
+
+    .count-anim {
+      animation: countPulse 0.65s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    }
+
+    /* Front AR Camera Feed mirroring */
+    #ar-camera-feed {
+      transform: scaleX(-1);
+    }
+
+    /* Motion Tracker Badge Pulse */
+    @keyframes pulseGlow {
+      0%, 100% { opacity: 0.9; transform: scale(1); }
+      50% { opacity: 1; transform: scale(1.05); }
+    }
+    .pulse-glow {
+      animation: pulseGlow 1.5s infinite;
+    }
+
+    /* Custom Scrollbar for Website Modals */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.5);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(244, 114, 182, 0.5);
+      border-radius: 999px;
+    }
+  </style>
+</head>
+<body class="select-none overflow-hidden bg-slate-950 text-white">
+
+  <div id="game-container" class="relative w-full h-full">
+    <!-- Camera feed background for AR mode -->
+    <video id="ar-camera-feed" autoplay playsinline muted class="hidden absolute inset-0 w-full h-full object-cover z-0"></video>
+
+    <!-- 3D WebGL Canvas -->
+    <canvas id="game-canvas"></canvas>
+
+    <!-- Damage Red Flash Overlay -->
+    <div id="damage-flash" class="absolute inset-0 bg-red-600/30 opacity-0 z-20 pointer-events-none"></div>
+
+    <!-- Floating Score Popups Container -->
+    <div id="popups-container" class="absolute inset-0 pointer-events-none z-30"></div>
+
+    <!-- Website Header Bar / Quick Navigation -->
+    <header id="site-header" class="absolute top-0 left-0 right-0 z-40 p-4 flex justify-between items-center max-w-6xl mx-auto pointer-events-none">
+      <div class="flex items-center space-x-3 pointer-events-auto cursor-pointer" id="brand-logo">
+        <span class="text-3xl sm:text-4xl">🏃‍♂️</span>
+        <div>
+          <h1 class="game-font text-xl sm:text-2xl text-transparent bg-clip-text bg-gradient-to-r from-pink-300 via-purple-200 to-sky-300 leading-none">
+            GIANT FOOD RUN
+          </h1>
+          <p class="text-[10px] text-teal-300 uppercase tracking-widest font-semibold">Web Arcade Edition</p>
+        </div>
+      </div>
+
+      <nav class="flex items-center space-x-2 pointer-events-auto">
+        <button id="nav-howtoplay" class="px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-white/20 text-xs sm:text-sm font-bold text-slate-200 backdrop-blur-md transition-all flex items-center space-x-1">
+          <span>📖</span>
+          <span class="hidden sm:inline">How To Play</span>
+        </button>
+        <button id="nav-leaderboard" class="px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-white/20 text-xs sm:text-sm font-bold text-slate-200 backdrop-blur-md transition-all flex items-center space-x-1">
+          <span>🏆</span>
+          <span class="hidden sm:inline">High Scores</span>
+        </button>
+      </nav>
+    </header>
+
+    <!-- ================= PAGE 1: COVER PAGE / HERO HUB ================= -->
+    <div id="page-cover" class="absolute inset-0 z-30 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto pt-20">
+      <div class="glass-panel max-w-md w-full p-6 sm:p-8 rounded-3xl text-center border-purple-300/40 flex flex-col items-center shadow-2xl my-auto relative">
+        
+        <!-- Big Graphic Icon Preview -->
+        <div class="relative group cursor-pointer my-2">
+          <div class="absolute -inset-1 bg-gradient-to-r from-pink-500 to-teal-400 rounded-full blur opacity-75 group-hover:opacity-100 transition duration-1000 group-hover:duration-200 animate-pulse"></div>
+          <div class="relative text-6xl sm:text-7xl p-4 bg-slate-900 rounded-full border border-white/20">
+            🥗
+          </div>
+        </div>
+
+        <!-- Main Title -->
+        <h1 class="game-font text-4xl sm:text-5xl text-transparent bg-clip-text bg-gradient-to-r from-pink-300 via-purple-200 to-sky-300 drop-shadow-[0_4px_12px_rgba(244,114,182,0.4)] tracking-wide mb-2 mt-2">
+          GIANT FOOD RUN
+        </h1>
+        <p class="text-xs sm:text-sm text-slate-300 mb-6 max-w-xs">
+          Dodge giant junk food obstacles, collect healthy veggies & fruits, and reach the finish line!
+        </p>
+
+        <!-- Mode Buttons: Virtual Run vs AR Run -->
+        <div class="w-full space-y-3.5 mb-2">
+          <button id="btn-mode-virtual" class="w-full py-4 rounded-2xl bg-gradient-to-r from-pink-300 via-purple-300 to-teal-300 game-font text-2xl text-slate-900 tracking-wider uppercase btn-glow-pastel transform hover:-translate-y-1 active:translate-y-0 transition-all flex items-center justify-center space-x-2 shadow-lg">
+            <span>🌐 VIRTUAL RUN</span>
+          </button>
+
+          <button id="btn-mode-ar" class="w-full py-3.5 rounded-2xl bg-gradient-to-r from-teal-300 via-sky-300 to-purple-300 game-font text-xl text-slate-900 tracking-wider uppercase btn-glow-pastel transform hover:-translate-y-1 active:translate-y-0 transition-all flex items-center justify-center space-x-2 shadow-lg">
+            <span>📷 AR MOTION RUN</span>
+          </button>
+        </div>
+
+        <div class="mt-4 pt-4 border-t border-white/10 w-full flex justify-around text-xs text-slate-400">
+          <span class="flex items-center gap-1">🎮 Keyboard / Touch</span>
+          <span class="flex items-center gap-1">📸 Motion Tracking</span>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ================= PAGE 2: CHOOSE DIFFICULTY ================= -->
+    <div id="page-difficulty" class="hidden absolute inset-0 z-30 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto pt-20">
+      <div class="glass-panel max-w-md w-full p-6 sm:p-8 rounded-3xl text-center border-purple-300/40 flex flex-col items-center shadow-2xl my-auto">
+        
+        <div class="text-xs uppercase font-extrabold text-pink-300 tracking-widest mb-1">
+          STEP 1 OF 2
+        </div>
+        <h2 class="game-font text-3xl sm:text-4xl text-transparent bg-clip-text bg-gradient-to-r from-pink-200 via-purple-200 to-teal-200 tracking-wide mb-6">
+          CHOOSE DIFFICULTY
+        </h2>
+
+        <!-- Difficulty Selection Cards -->
+        <div class="w-full space-y-3 mb-6">
+          <button id="lvl-card-1" class="w-full p-3.5 rounded-2xl border-2 border-emerald-300 bg-emerald-400/20 flex items-center justify-between cursor-pointer transition-all hover:scale-[1.02]">
+            <div class="text-left">
+              <div class="game-font text-lg text-emerald-200 flex items-center space-x-1">
+                <span>EASY MODE</span>
+              </div>
+              <div class="text-xs text-slate-300 mt-0.5">300m Track • Healthy Food Rush</div>
+            </div>
+            <span id="badge-lvl-1" class="text-emerald-300 font-bold text-sm">✓ SELECTED</span>
+          </button>
+
+          <button id="lvl-card-2" class="w-full p-3.5 rounded-2xl border-2 border-white/20 bg-slate-800/50 flex items-center justify-between cursor-pointer transition-all hover:bg-slate-700/50 hover:scale-[1.02]">
+            <div class="text-left">
+              <div class="game-font text-lg text-purple-200">MEDIUM MODE</div>
+              <div class="text-xs text-slate-300 mt-0.5">1000m Track • Faster Pace</div>
+            </div>
+            <span id="badge-lvl-2" class="text-slate-400 font-bold text-sm">SELECT</span>
+          </button>
+
+          <button id="lvl-card-3" class="w-full p-3.5 rounded-2xl border-2 border-white/20 bg-slate-800/50 flex items-center justify-between cursor-pointer transition-all hover:bg-slate-700/50 hover:scale-[1.02]">
+            <div class="text-left">
+              <div class="game-font text-lg text-rose-300">HARD MODE</div>
+              <div class="text-xs text-slate-300 mt-0.5">1500m Track • Extreme Rush</div>
+            </div>
+            <span id="badge-lvl-3" class="text-slate-400 font-bold text-sm">SELECT</span>
+          </button>
+        </div>
+
+        <div class="w-full grid grid-cols-2 gap-3">
+          <button id="btn-diff-back" class="py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 border border-white/20 game-font text-base text-slate-200 tracking-wider uppercase transition-all">
+            ⬅️ BACK
+          </button>
+          <button id="btn-goto-gender" class="py-3 rounded-2xl bg-gradient-to-r from-pink-300 via-purple-300 to-teal-300 game-font text-base text-slate-900 tracking-wider uppercase btn-glow-pastel transition-all font-bold">
+            NEXT ➡️
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= PAGE 3: CHOOSE GENDER ================= -->
+    <div id="page-gender" class="hidden absolute inset-0 z-30 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto pt-20">
+      <div class="glass-panel max-w-md w-full p-6 sm:p-8 rounded-3xl text-center border-purple-300/40 flex flex-col items-center shadow-2xl my-auto">
+        
+        <div class="text-xs uppercase font-extrabold text-pink-300 tracking-widest mb-1">
+          STEP 2 OF 2
+        </div>
+        <h2 class="game-font text-3xl sm:text-4xl text-transparent bg-clip-text bg-gradient-to-r from-pink-200 via-purple-200 to-teal-200 tracking-wide mb-6">
+          CHOOSE CHARACTER
+        </h2>
+
+        <!-- Gender Cards -->
+        <div class="grid grid-cols-2 gap-4 w-full mb-6">
+          <button id="select-boy" class="avatar-card p-4 rounded-2xl border-2 border-pink-300 bg-pink-400/20 flex flex-col items-center cursor-pointer transition-all hover:scale-105">
+            <span class="text-5xl mb-2">👦</span>
+            <span class="game-font text-base text-white">BOY RUNNER</span>
+            <span id="badge-boy" class="text-xs text-emerald-300 font-bold mt-2">✓ SELECTED</span>
+          </button>
+          
+          <button id="select-girl" class="avatar-card p-4 rounded-2xl border-2 border-white/20 bg-slate-800/50 flex flex-col items-center cursor-pointer transition-all hover:bg-slate-700/50 hover:scale-105">
+            <span class="text-5xl mb-2">👧</span>
+            <span class="game-font text-base text-white">GIRL RUNNER</span>
+            <span id="badge-girl" class="text-xs text-slate-400 font-bold mt-2">SELECT</span>
+          </button>
+        </div>
+
+        <div class="w-full grid grid-cols-3 gap-3">
+          <button id="btn-gender-back" class="col-span-1 py-3.5 rounded-2xl bg-slate-800 hover:bg-slate-700 border border-white/20 game-font text-base text-slate-200 tracking-wider uppercase transition-all">
+            ⬅️ BACK
+          </button>
+          <button id="btn-launch-run" class="col-span-2 py-3.5 rounded-2xl bg-gradient-to-r from-pink-300 via-purple-300 to-teal-300 game-font text-xl text-slate-900 tracking-wider uppercase btn-glow-pastel transition-all transform hover:-translate-y-0.5 font-bold">
+            LET'S RUN! 🏃‍♂️
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= HUD OVERLAY ================= -->
+    <div id="hud" class="hidden absolute top-0 left-0 right-0 p-4 z-30 pointer-events-none flex flex-col gap-2 max-w-lg mx-auto">
+      <div class="flex items-center justify-between">
+        <!-- Healthy Food Score Card -->
+        <div class="glass-panel px-3 py-1.5 sm:px-4 sm:py-2 rounded-2xl flex items-center space-x-2 border-emerald-300/40 pointer-events-auto">
+          <span class="text-2xl">🥗</span>
+          <div>
+            <div class="text-[10px] uppercase tracking-wider text-emerald-200 font-bold flex items-center gap-1">
+              <span>Healthy Food</span>
+              <span id="hud-mode-badge" class="px-1.5 py-0.5 rounded bg-sky-500/30 text-[9px] text-sky-200">VIRTUAL</span>
+            </div>
+            <div id="score-text" class="game-font text-xl sm:text-2xl text-emerald-300 leading-none">0</div>
+          </div>
+        </div>
+
+        <!-- Distance Progress Bar -->
+        <div class="flex-1 mx-3">
+          <div class="flex justify-between text-xs font-bold text-slate-300 mb-1 px-1">
+            <span id="level-hud-label" class="text-teal-300">LVL 1</span>
+            <span id="distance-text" class="text-pink-300 game-font">300m</span>
+            <span>FINISH 🏁</span>
+          </div>
+          <div class="w-full bg-slate-800/80 rounded-full h-3.5 p-0.5 border border-white/20 overflow-hidden shadow-inner">
+            <div id="progress-bar-fill" class="bg-gradient-to-r from-pink-300 via-purple-300 to-teal-300 h-full rounded-full w-0 transition-all duration-100 shadow-lg"></div>
+          </div>
+        </div>
+
+        <!-- Controls & Lives -->
+        <div class="flex items-center space-x-2 pointer-events-auto">
+          <button id="btn-pause" class="btn-icon-hud w-10 h-10 rounded-2xl flex items-center justify-center text-lg shadow-md hover:bg-slate-800" title="Pause Game">
+            ⏸️
+          </button>
+          <button id="btn-music-toggle" class="btn-icon-hud w-10 h-10 rounded-2xl flex items-center justify-center text-lg shadow-md hover:bg-slate-800" title="Toggle Sound">
+            🎵
+          </button>
+          <div class="glass-panel px-2.5 py-1.5 rounded-2xl flex items-center space-x-1 border-rose-400/40">
+            <span id="heart-1" class="text-xl sm:text-2xl transition-transform duration-300">❤️</span>
+            <span id="heart-2" class="text-xl sm:text-2xl transition-transform duration-300">❤️</span>
+            <span id="heart-3" class="text-xl sm:text-2xl transition-transform duration-300">❤️</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- AR Motion Feedback Status Indicator -->
+      <div id="ar-motion-status" class="hidden self-center px-4 py-1.5 rounded-full bg-purple-900/80 backdrop-blur-md border border-pink-300/50 text-xs font-bold text-pink-200 flex items-center space-x-2 shadow-lg pulse-glow">
+        <span>📷 MOTION DETECTOR:</span>
+        <span id="ar-motion-text" class="text-teal-300 game-font text-sm">CENTER</span>
+        <span id="ar-sensitivity-tag" class="hidden text-[10px] bg-pink-500/30 text-pink-200 px-1.5 py-0.5 rounded border border-pink-400/40 font-mono">⚡ HIGH SENS</span>
+      </div>
+    </div>
+
+    <!-- Mobile Touch Control Buttons Overlay -->
+    <div id="mobile-controls" class="hidden absolute bottom-6 left-0 right-0 z-30 px-6 flex justify-between items-center pointer-events-auto max-w-md mx-auto">
+      <button id="btn-left" class="w-16 h-16 rounded-full bg-slate-800/80 border-2 border-pink-300/60 active:bg-pink-400/40 flex items-center justify-center text-2xl shadow-xl active:scale-95 transition-all text-white">
+        ⬅️
+      </button>
+      <button id="btn-jump" class="w-20 h-20 rounded-full bg-gradient-to-t from-teal-300 to-pink-300 border-2 border-white active:scale-90 flex items-center justify-center text-3xl shadow-2xl transition-all text-slate-900 font-bold">
+        🦘
+      </button>
+      <button id="btn-right" class="w-16 h-16 rounded-full bg-slate-800/80 border-2 border-pink-300/60 active:bg-pink-400/40 flex items-center justify-center text-2xl shadow-xl active:scale-95 transition-all text-white">
+        ➡️
+      </button>
+    </div>
+
+    <!-- COUNTDOWN OVERLAY -->
+    <div id="countdown-overlay" class="hidden absolute inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md pointer-events-none">
+      <div id="countdown-text" class="game-font text-8xl sm:text-9xl text-transparent bg-clip-text bg-gradient-to-r from-pink-300 via-purple-200 to-sky-300 drop-shadow-[0_10px_20px_rgba(0,0,0,0.8)]">
+        3
+      </div>
+    </div>
+
+    <!-- PAUSE SCREEN -->
+    <div id="pause-screen" class="hidden absolute inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md">
+      <div class="glass-panel max-w-sm w-full p-6 rounded-3xl text-center border-purple-300/40 flex flex-col items-center shadow-2xl">
+        <div class="text-5xl mb-2">⏸️</div>
+        <h2 class="game-font text-4xl text-transparent bg-clip-text bg-gradient-to-r from-pink-200 to-purple-200 tracking-wide mb-6">GAME PAUSED</h2>
+
+        <div class="w-full space-y-3 mb-4">
+          <button id="pause-resume-btn" class="w-full py-3.5 rounded-2xl bg-gradient-to-r from-pink-300 to-teal-300 game-font text-xl text-slate-900 font-bold tracking-wider uppercase btn-glow-pastel transform hover:-translate-y-0.5 active:translate-y-0">
+            RESUME ▶️
+          </button>
+          <button id="pause-mainmenu-btn" class="w-full py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 border border-white/20 game-font text-lg text-slate-200 tracking-wider uppercase active:scale-95 transition-all">
+            MAIN MENU 🏠
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- GAME OVER SCREEN -->
+    <div id="gameover-screen" class="hidden absolute inset-0 z-40 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md">
+      <div class="glass-panel max-w-sm w-full p-6 rounded-3xl text-center border-rose-400/40 flex flex-col items-center shadow-2xl">
+        <div class="text-5xl mb-2 animate-bounce">💥</div>
+        <h2 class="game-font text-4xl text-rose-400 tracking-wide mb-6">GAME OVER</h2>
+
+        <div class="w-full bg-slate-900/80 rounded-2xl p-4 border border-white/10 space-y-3 mb-6">
+          <div class="flex justify-between items-center">
+            <span class="text-xs uppercase font-bold text-slate-400">Healthy Foods Collected</span>
+            <span id="go-coins" class="game-font text-xl text-emerald-300">0</span>
+          </div>
+          <div class="flex justify-between items-center border-t border-white/10 pt-2">
+            <span class="text-xs uppercase font-bold text-slate-400">Distance Travelled</span>
+            <span id="go-distance" class="game-font text-xl text-pink-300">0m</span>
+          </div>
+        </div>
+
+        <button id="restart-btn" class="w-full py-4 rounded-2xl bg-gradient-to-r from-rose-400 to-purple-400 game-font text-xl text-white tracking-wider uppercase shadow-lg hover:brightness-110 active:scale-95 transition-all">
+          PLAY AGAIN 🔄
+        </button>
+      </div>
+    </div>
+
+    <!-- VICTORY SCREEN -->
+    <div id="victory-screen" class="hidden absolute inset-0 z-40 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md">
+      <div class="glass-panel max-w-sm w-full p-6 rounded-3xl text-center border-emerald-300/50 flex flex-col items-center shadow-2xl relative overflow-hidden">
+        
+        <div class="victory-badge mb-3 px-4 py-1.5 bg-gradient-to-r from-pink-200 via-purple-200 to-teal-200 rounded-2xl border-2 border-white shadow-xl flex items-center space-x-2">
+          <span class="text-2xl">🏆</span>
+          <span class="game-font text-3xl text-slate-900 tracking-wider">VICTORY! 🎉</span>
+        </div>
+
+        <h2 class="game-font text-3xl text-transparent bg-clip-text bg-gradient-to-r from-emerald-300 via-teal-200 to-pink-200 tracking-wide mb-6">
+          YOU MADE IT!
+        </h2>
+
+        <div class="w-full bg-slate-900/80 rounded-2xl p-4 border border-emerald-300/30 space-y-3 mb-6">
+          <div class="flex justify-between items-center">
+            <span class="text-xs uppercase font-bold text-slate-400">Score Gained</span>
+            <span id="vic-coins" class="game-font text-lg text-emerald-300">0 / 0 (0%)</span>
+          </div>
+          <div class="flex justify-between items-center border-t border-white/10 pt-2">
+            <span class="text-xs uppercase font-bold text-slate-400">Final Rating</span>
+            <span id="vic-rating" class="game-font text-xl text-yellow-200">⭐⭐⭐⭐⭐</span>
+          </div>
+        </div>
+
+        <button id="playagain-btn" class="w-full py-4 rounded-2xl bg-gradient-to-r from-pink-300 via-purple-300 to-teal-300 game-font text-xl text-slate-900 font-bold tracking-wider uppercase btn-glow-pastel transform hover:-translate-y-0.5 active:translate-y-0">
+          PLAY AGAIN 🎮
+        </button>
+      </div>
+    </div>
+
+    <!-- WEBSITE MODAL: HOW TO PLAY -->
+    <div id="modal-howtoplay" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+      <div class="glass-panel max-w-md w-full p-6 rounded-3xl border-purple-300/40 relative max-h-[85vh] overflow-y-auto">
+        <button id="close-howtoplay" class="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-800 text-slate-300 flex items-center justify-center hover:bg-slate-700">✕</button>
+        <h2 class="game-font text-3xl text-transparent bg-clip-text bg-gradient-to-r from-pink-200 to-teal-200 mb-4">📖 HOW TO PLAY</h2>
+        
+        <div class="space-y-4 text-sm text-slate-200">
+          <div class="bg-slate-900/60 p-3 rounded-2xl border border-white/10">
+            <h3 class="font-bold text-pink-300 mb-1 flex items-center gap-2">⌨️ Keyboard Controls</h3>
+            <p>Use <span class="text-teal-300 font-mono">A / D</span> or <span class="text-teal-300 font-mono">⬅️ / ➡️</span> to change lanes.</p>
+            <p>Press <span class="text-teal-300 font-mono">Space / Up Arrow / W</span> to jump.</p>
+          </div>
+
+          <div class="bg-slate-900/60 p-3 rounded-2xl border border-white/10">
+            <h3 class="font-bold text-sky-300 mb-1 flex items-center gap-2">📷 AR Camera Controls</h3>
+            <p>Stand in front of your front camera. Lean left or right to switch lanes, and jump physically to jump in-game!</p>
+          </div>
+
+          <div class="bg-slate-900/60 p-3 rounded-2xl border border-white/10">
+            <h3 class="font-bold text-emerald-300 mb-1 flex items-center gap-2">🥗 Collect Healthy Food</h3>
+            <p>Gather apples, bananas, watermelons, and broccoli for points. Avoid giant burgers, fries, sodas, and ketchup puddles!</p>
+          </div>
+        </div>
+
+        <button id="btn-close-howtoplay-bottom" class="mt-6 w-full py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 border border-white/20 game-font text-slate-200 uppercase">
+          GOT IT!
+        </button>
+      </div>
+    </div>
+
+    <!-- WEBSITE MODAL: LEADERBOARD -->
+    <div id="modal-leaderboard" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+      <div class="glass-panel max-w-md w-full p-6 rounded-3xl border-purple-300/40 relative">
+        <button id="close-leaderboard" class="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-800 text-slate-300 flex items-center justify-center hover:bg-slate-700">✕</button>
+        <h2 class="game-font text-3xl text-transparent bg-clip-text bg-gradient-to-r from-pink-200 to-teal-200 mb-4">🏆 HIGH SCORES</h2>
+
+        <div class="space-y-3 mb-6">
+          <div class="flex justify-between items-center p-3 rounded-2xl bg-emerald-500/10 border border-emerald-400/30">
+            <div class="flex items-center space-x-2">
+              <span class="text-2xl">🟢</span>
+              <span class="game-font text-emerald-200">EASY MODE</span>
+            </div>
+            <span id="hs-lvl-1" class="game-font text-xl text-emerald-300">0 pts</span>
+          </div>
+
+          <div class="flex justify-between items-center p-3 rounded-2xl bg-purple-500/10 border border-purple-400/30">
+            <div class="flex items-center space-x-2">
+              <span class="text-2xl">🟣</span>
+              <span class="game-font text-purple-200">MEDIUM MODE</span>
+            </div>
+            <span id="hs-lvl-2" class="game-font text-xl text-purple-300">0 pts</span>
+          </div>
+
+          <div class="flex justify-between items-center p-3 rounded-2xl bg-rose-500/10 border border-rose-400/30">
+            <div class="flex items-center space-x-2">
+              <span class="text-2xl">🔴</span>
+              <span class="game-font text-rose-200">HARD MODE</span>
+            </div>
+            <span id="hs-lvl-3" class="game-font text-xl text-rose-300">0 pts</span>
+          </div>
+        </div>
+
+        <button id="btn-close-leaderboard-bottom" class="w-full py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 border border-white/20 game-font text-slate-200 uppercase">
+          CLOSE
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    class SoundManager {
+      constructor() {
+        this.ctx = null;
+        this.bgmTimer = null;
+        this.bgmNoteIndex = 0;
+        this.isMuted = false;
+        this.bgmMelody = [
+          523.25, 659.25, 783.99, 1046.50,
+          880.00, 783.99, 659.25, 523.25,
+          587.33, 659.25, 698.46, 880.00,
+          783.99, 659.25, 587.33, 523.25
+        ];
+      }
+
+      init() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          if (AudioContext) {
+            this.ctx = new AudioContext();
+          }
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      }
+
+      toggleMute() {
+        this.init();
+        this.isMuted = !this.isMuted;
+        if (this.isMuted) {
+          this.stopBGM();
+        } else if (gameState === 'PLAYING') {
+          this.startBGM();
+        }
+        return this.isMuted;
+      }
+
+      startBGM() {
+        if (this.isMuted) return;
+        this.init();
+        if (this.bgmTimer) clearInterval(this.bgmTimer);
+
+        this.bgmNoteIndex = 0;
+
+        this.bgmTimer = setInterval(() => {
+          if (!this.ctx || this.isMuted || gameState !== 'PLAYING') return;
+          if (this.ctx.state === 'suspended') this.ctx.resume();
+
+          const freq = this.bgmMelody[this.bgmNoteIndex];
+          this.bgmNoteIndex = (this.bgmNoteIndex + 1) % this.bgmMelody.length;
+
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+
+          gain.gain.setValueAtTime(0.08, this.ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.18);
+
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+
+          osc.start();
+          osc.stop(this.ctx.currentTime + 0.18);
+        }, 220);
+      }
+
+      stopBGM() {
+        if (this.bgmTimer) {
+          clearInterval(this.bgmTimer);
+          this.bgmTimer = null;
+        }
+      }
+
+      playCoin() {
+        this.init();
+        if (!this.ctx || this.isMuted) return;
+
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(1760, this.ctx.currentTime + 0.12);
+
+        gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.12);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.12);
+      }
+
+      playJump() {
+        this.init();
+        if (!this.ctx || this.isMuted) return;
+
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(260, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(650, this.ctx.currentTime + 0.2);
+
+        gain.gain.setValueAtTime(0.35, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.2);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.2);
+      }
+
+      playHit() {
+        this.init();
+        if (!this.ctx || this.isMuted) return;
+
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(180, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(40, this.ctx.currentTime + 0.35);
+
+        gain.gain.setValueAtTime(0.4, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.35);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.35);
+      }
+
+      playClick() {
+        this.init();
+        if (!this.ctx || this.isMuted) return;
+
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(600, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(300, this.ctx.currentTime + 0.06);
+
+        gain.gain.setValueAtTime(0.25, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.06);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.06);
+      }
+
+      playBeep(freq = 520) {
+        this.init();
+        if (!this.ctx || this.isMuted) return;
+
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+
+        gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.15);
+      }
+
+      playWin() {
+        this.init();
+        if (!this.ctx || this.isMuted) return;
+
+        [523.25, 659.25, 783.99, 1046.50, 1318.51].forEach((freq, idx) => {
+          setTimeout(() => {
+            if (this.isMuted || !this.ctx) return;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+
+            gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.3);
+
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+
+            osc.start();
+            osc.stop(this.ctx.currentTime + 0.3);
+          }, idx * 100);
+        });
+      }
+    }
+
+    const sound = new SoundManager();
+
+    let scene, camera, renderer, clock;
+    let playerGroup, playerMesh;
+    let selectedAvatar = 'boy'; 
+    let selectedLevel = 1;     
+    let gameMode = 'VIRTUAL';  
+    let cameraStream = null;
+    let mpCameraUtils = null;
+    let mpPose = null;
+    
+    let currentLane = 1, playerX = 0, playerY = 0, playerVY = 0, isJumping = false;
+    
+    const LEVEL_CONFIGS = {
+      1: { distance: 300, speed: 10, name: 'LVL 1 - EASY' },
+      2: { distance: 1000, speed: 20, name: 'LVL 2 - MEDIUM' },
+      3: { distance: 1500, speed: 25, name: 'LVL 3 - HARD' }
+    };
+
+    let TRACK_LENGTH = 300;
+    let RUN_SPEED = 10;
+    const JUMP_GRAVITY = -35;
+    const LANES = [-2.2, 0, 2.2];
+
+    let obstacles = [];
+    let coins = [];
+    let particles = [];
+    let finishGateGroup = null;
+    let environmentGroup = null;
+
+    let currentCamX = 0;
+    let currentLookX = 0;
+
+    let gameState = 'START'; 
+    let lives = 3;
+    let score = 0;
+    let maxPossibleScore = 0;
+    let distanceTravelled = 0;
+    let invulnerableTimer = 0;
+
+    let baselineHeadY = null;
+    let jumpCooldown = false;
+
+    // LocalStorage Leaderboard functions
+    function loadHighScores() {
+      const hs1 = localStorage.getItem('gfr_hs_1') || 0;
+      const hs2 = localStorage.getItem('gfr_hs_2') || 0;
+      const hs3 = localStorage.getItem('gfr_hs_3') || 0;
+
+      document.getElementById('hs-lvl-1').textContent = hs1 + ' pts';
+      document.getElementById('hs-lvl-2').textContent = hs2 + ' pts';
+      document.getElementById('hs-lvl-3').textContent = hs3 + ' pts';
+    }
+
+    function saveHighScore(lvl, newScore) {
+      const key = `gfr_hs_${lvl}`;
+      const current = parseInt(localStorage.getItem(key) || '0', 10);
+      if (newScore > current) {
+        localStorage.setItem(key, newScore);
+        loadHighScores();
+      }
+    }
+
+    function initScene() {
+      const canvas = document.getElementById('game-canvas');
+
+      scene = new THREE.Scene();
+      
+      if (gameMode === 'AR') {
+        scene.background = null;
+      } else {
+        scene.background = new THREE.Color(0xa5f3fc); 
+        scene.fog = new THREE.FogExp2(0xa5f3fc, 0.007);
+      }
+
+      camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+      camera.position.set(0, 3.8, 7.5);
+
+      renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
+      renderer.setClearColor(0x000000, 0);
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+      clock = new THREE.Clock();
+
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+      scene.add(ambientLight);
+
+      const dirLight = new THREE.DirectionalLight(0xfffaed, 1.0);
+      dirLight.position.set(20, 40, 20);
+      dirLight.castShadow = true;
+      dirLight.shadow.mapSize.width = 1024;
+      dirLight.shadow.mapSize.height = 1024;
+      scene.add(dirLight);
+
+      environmentGroup = new THREE.Group();
+      scene.add(environmentGroup);
+
+      playerGroup = new THREE.Group();
+      scene.add(playerGroup);
+
+      createPlayer();
+      buildEnvironment();
+      generateLevelContent();
+
+      window.addEventListener('resize', onWindowResize, false);
+    }
+
+    function createPlayer() {
+      if (!playerGroup) return;
+
+      while (playerGroup.children.length > 0) {
+        const obj = playerGroup.children[0];
+        if (obj.geometry) obj.geometry.dispose();
+        if (obj.material) {
+          if (Array.isArray(obj.material)) obj.material.forEach(m => m.dispose());
+          else obj.material.dispose();
+        }
+        playerGroup.remove(obj);
+      }
+
+      playerMesh = new THREE.Group();
+
+      const isBoy = selectedAvatar === 'boy';
+      const shirtColor = isBoy ? 0x38bdf8 : 0xf472b6;
+      const pantsColor = isBoy ? 0x1e293b : 0x475569;
+
+      // Torso
+      const torso = new THREE.Mesh(
+        new THREE.BoxGeometry(0.7, 0.9, 0.4),
+        new THREE.MeshStandardMaterial({ color: shirtColor, roughness: 0.4 })
+      );
+      torso.position.y = 1.05;
+      torso.castShadow = true;
+      playerMesh.add(torso);
+
+      // Head
+      const head = new THREE.Mesh(
+        new THREE.SphereGeometry(0.35, 16, 16),
+        new THREE.MeshStandardMaterial({ color: 0xffdbac, roughness: 0.6 })
+      );
+      head.position.y = 1.75;
+      head.castShadow = true;
+      playerMesh.add(head);
+
+      // Eyes
+      [-0.12, 0.12].forEach(ex => {
+        const eye = new THREE.Mesh(
+          new THREE.SphereGeometry(0.05, 8, 8),
+          new THREE.MeshBasicMaterial({ color: 0x1e293b })
+        );
+        eye.position.set(ex, 1.8, -0.3);
+        playerMesh.add(eye);
+      });
+
+      if (isBoy) {
+        const cap = new THREE.Mesh(
+          new THREE.SphereGeometry(0.37, 16, 16, 0, Math.PI * 2, 0, Math.PI * 0.5),
+          new THREE.MeshStandardMaterial({ color: 0xfacc15 })
+        );
+        cap.position.y = 1.8;
+        playerMesh.add(cap);
+
+        const visor = new THREE.Mesh(
+          new THREE.BoxGeometry(0.4, 0.05, 0.3),
+          new THREE.MeshStandardMaterial({ color: 0xfacc15 })
+        );
+        visor.position.set(0, 1.82, -0.4);
+        playerMesh.add(visor);
+      } else {
+        const hair = new THREE.Mesh(
+          new THREE.SphereGeometry(0.39, 16, 16),
+          new THREE.MeshStandardMaterial({ color: 0x78350f })
+        );
+        hair.position.set(0, 1.8, 0.05);
+        playerMesh.add(hair);
+
+        const bow = new THREE.Mesh(
+          new THREE.BoxGeometry(0.3, 0.15, 0.1),
+          new THREE.MeshStandardMaterial({ color: 0xf43f5e })
+        );
+        bow.position.set(0, 2.05, -0.15);
+        playerMesh.add(bow);
+      }
+
+      // Legs
+      const legGeo = new THREE.BoxGeometry(0.24, 0.65, 0.24);
+      const legMat = new THREE.MeshStandardMaterial({ color: pantsColor });
+
+      const leftLeg = new THREE.Mesh(legGeo, legMat);
+      leftLeg.name = 'leftLeg';
+      leftLeg.position.set(-0.2, 0.35, 0);
+      leftLeg.castShadow = true;
+      playerMesh.add(leftLeg);
+
+      const rightLeg = new THREE.Mesh(legGeo, legMat);
+      rightLeg.name = 'rightLeg';
+      rightLeg.position.set(0.2, 0.35, 0);
+      rightLeg.castShadow = true;
+      playerMesh.add(rightLeg);
+
+      // Shoes
+      [-0.2, 0.2].forEach(sx => {
+        const shoe = new THREE.Mesh(
+          new THREE.BoxGeometry(0.26, 0.15, 0.35),
+          new THREE.MeshStandardMaterial({ color: 0xffffff })
+        );
+        shoe.position.set(sx, 0.08, -0.05);
+        shoe.castShadow = true;
+        playerMesh.add(shoe);
+      });
+
+      playerGroup.add(playerMesh);
+    }
+
+    function buildEnvironment() {
+      if (!environmentGroup) return;
+
+      while (environmentGroup.children.length > 0) {
+        const obj = environmentGroup.children[0];
+        if (obj.geometry) obj.geometry.dispose();
+        if (obj.material) {
+          if (Array.isArray(obj.material)) obj.material.forEach(m => m.dispose());
+          else obj.material.dispose();
+        }
+        environmentGroup.remove(obj);
+      }
+
+      const envLength = TRACK_LENGTH + 400;
+      const zOffset = -envLength / 2 + 50;
+      const isAR = gameMode === 'AR';
+
+      const roadGeo = new THREE.PlaneGeometry(8, envLength);
+      const roadMat = new THREE.MeshStandardMaterial({ 
+        color: isAR ? 0x1e293b : 0x334155, 
+        roughness: 0.8,
+        transparent: isAR,
+        opacity: isAR ? 0.65 : 1.0
+      });
+      const road = new THREE.Mesh(roadGeo, roadMat);
+      road.rotation.x = -Math.PI / 2;
+      road.position.set(0, 0, zOffset);
+      road.receiveShadow = true;
+      environmentGroup.add(road);
+
+      [-1.1, 1.1].forEach(x => {
+        for (let z = 50; z > -TRACK_LENGTH - 200; z -= 8) {
+          const dashGeo = new THREE.PlaneGeometry(0.15, 4);
+          const dashMat = new THREE.MeshBasicMaterial({ color: 0xfef08a });
+          const dash = new THREE.Mesh(dashGeo, dashMat);
+          dash.rotation.x = -Math.PI / 2;
+          dash.position.set(x, 0.02, z);
+          environmentGroup.add(dash);
+        }
+      });
+
+      [-4.5, 4.5].forEach(x => {
+        const curbGeo = new THREE.BoxGeometry(1.2, 0.4, envLength);
+        const curbMat = new THREE.MeshStandardMaterial({ 
+          color: 0x94a3b8,
+          transparent: isAR,
+          opacity: isAR ? 0.75 : 1.0
+        });
+        const curb = new THREE.Mesh(curbGeo, curbMat);
+        curb.position.set(x, 0.2, zOffset);
+        environmentGroup.add(curb);
+      });
+
+      if (!isAR) {
+        [-25, 25].forEach(x => {
+          const grassGeo = new THREE.PlaneGeometry(40, envLength);
+          const grassMat = new THREE.MeshStandardMaterial({ color: 0x4ade80, roughness: 0.9 });
+          const grass = new THREE.Mesh(grassGeo, grassMat);
+          grass.rotation.x = -Math.PI / 2;
+          grass.position.set(x, -0.05, zOffset);
+          environmentGroup.add(grass);
+        });
+
+        const decorFruits = ['apple', 'strawberry', 'pineapple', 'kiwi', 'orange', 'grape'];
+        let fruitIdx = 0;
+        for (let z = 20; z > -TRACK_LENGTH - 200; z -= 45) {
+          const leftTree = createSpacedFruitDecor(decorFruits[fruitIdx % decorFruits.length]);
+          leftTree.position.set(-18, 0, z);
+          environmentGroup.add(leftTree);
+
+          fruitIdx++;
+          const rightTree = createSpacedFruitDecor(decorFruits[fruitIdx % decorFruits.length]);
+          rightTree.position.set(18, 0, z - 22);
+          environmentGroup.add(rightTree);
+          fruitIdx++;
+        }
+      }
+    }
+
+    function createSpacedFruitDecor(type) {
+      const group = new THREE.Group();
+      
+      const trunkGeo = new THREE.CylinderGeometry(0.8, 1.2, 6, 8);
+      const trunkMat = new THREE.MeshStandardMaterial({ color: 0x78350f });
+      const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+      trunk.position.y = 3;
+      group.add(trunk);
+
+      const foliageGeo = new THREE.SphereGeometry(3.5, 12, 12);
+      const foliageMat = new THREE.MeshStandardMaterial({ color: 0x22c55e, roughness: 0.8 });
+      const foliage = new THREE.Mesh(foliageGeo, foliageMat);
+      foliage.position.y = 7;
+      group.add(foliage);
+
+      const fruitMesh = createHealthyFoodMesh(type);
+      fruitMesh.scale.set(3, 3, 3);
+      fruitMesh.position.set(0, 6.5, 2.8);
+      group.add(fruitMesh);
+
+      return group;
+    }
+
+    const emojiTextureCache = {};
+
+    function createEmojiTexture(emojiString) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 128;
+      canvas.height = 128;
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, 128, 128);
+      ctx.font = '96px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(emojiString, 64, 68);
+      
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.needsUpdate = true;
+      return texture;
+    }
+
+    function getEmojiTexture(type) {
+      const emojiMap = {
+        'apple': '🍎',
+        'banana': '🍌',
+        'watermelon': '🍉',
+        'carrot': '🥕',
+        'broccoli': '🥦',
+        'orange': '🍊',
+        'kiwi': '🥝',
+        'corn': '🌽',
+        'strawberry': '🍓',
+        'grape': '🍇',
+        'pineapple': '🍍'
+      };
+      const char = emojiMap[type] || '🍎';
+      if (!emojiTextureCache[type]) {
+        emojiTextureCache[type] = createEmojiTexture(char);
+      }
+      return emojiTextureCache[type];
+    }
+
+    function getSparkleTexture() {
+      if (emojiTextureCache['sparkle_glow']) return emojiTextureCache['sparkle_glow'];
+      const canvas = document.createElement('canvas');
+      canvas.width = 128;
+      canvas.height = 128;
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, 128, 128);
+      
+      const grad = ctx.createRadialGradient(64, 64, 5, 64, 64, 60);
+      grad.addColorStop(0, 'rgba(255, 245, 150, 0.95)');
+      grad.addColorStop(0.5, 'rgba(251, 191, 36, 0.5)');
+      grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(64, 64, 60, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.moveTo(64, 10);
+      ctx.quadraticCurveTo(64, 64, 118, 64);
+      ctx.quadraticCurveTo(64, 64, 64, 118);
+      ctx.quadraticCurveTo(64, 64, 10, 64);
+      ctx.quadraticCurveTo(64, 64, 64, 10);
+      ctx.fill();
+
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.needsUpdate = true;
+      emojiTextureCache['sparkle_glow'] = texture;
+      return texture;
+    }
+
+    function createHealthyFoodMesh(type) {
+      const texture = getEmojiTexture(type);
+      const material = new THREE.SpriteMaterial({ 
+        map: texture, 
+        transparent: true,
+        depthTest: true,
+        depthWrite: false 
+      });
+      const sprite = new THREE.Sprite(material);
+      sprite.scale.set(1.2, 1.2, 1);
+      return sprite;
+    }
+
+    function createObstacle(type, x, z) {
+      const group = new THREE.Group();
+      group.position.set(x, 0, z);
+
+      let radius = 1.2;
+      let height = 2.5;
+      let requiresJump = false;
+
+      if (type === 'fries') {
+        const container = new THREE.Mesh(
+          new THREE.BoxGeometry(1.6, 1.8, 1.0),
+          new THREE.MeshStandardMaterial({ color: 0xf43f5e, roughness: 0.3 })
+        );
+        container.position.y = 0.9;
+        container.castShadow = true;
+        group.add(container);
+
+        const stripe = new THREE.Mesh(
+          new THREE.BoxGeometry(1.62, 0.35, 1.02),
+          new THREE.MeshStandardMaterial({ color: 0xfde047 })
+        );
+        stripe.position.y = 1.0;
+        group.add(stripe);
+
+        for (let fx = -0.55; fx <= 0.55; fx += 0.2) {
+          for (let fz = -0.22; fz <= 0.22; fz += 0.22) {
+            const fryHeight = 1.7 + Math.random() * 0.5;
+            const fry = new THREE.Mesh(
+              new THREE.BoxGeometry(0.15, fryHeight, 0.15),
+              new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.3 })
+            );
+            fry.position.set(fx + (Math.random() - 0.5) * 0.08, 1.3 + fryHeight / 2 - 0.8, fz);
+            fry.rotation.z = (Math.random() - 0.5) * 0.22;
+            fry.rotation.x = (Math.random() - 0.5) * 0.22;
+            fry.castShadow = true;
+            group.add(fry);
+          }
+        }
+      } else if (type === 'burger') {
+        const bottomBun = new THREE.Mesh(
+          new THREE.CylinderGeometry(1.3, 1.2, 0.4, 18),
+          new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.5 })
+        );
+        bottomBun.position.y = 0.2;
+        bottomBun.castShadow = true;
+        group.add(bottomBun);
+
+        const patty = new THREE.Mesh(
+          new THREE.CylinderGeometry(1.35, 1.35, 0.35, 18),
+          new THREE.MeshStandardMaterial({ color: 0x4a2810, roughness: 0.8 })
+        );
+        patty.position.y = 0.55;
+        patty.castShadow = true;
+        group.add(patty);
+
+        const cheese = new THREE.Mesh(
+          new THREE.BoxGeometry(1.9, 0.08, 1.9),
+          new THREE.MeshStandardMaterial({ color: 0xfacc15 })
+        );
+        cheese.position.y = 0.75;
+        cheese.rotation.y = 0.4;
+        group.add(cheese);
+
+        const topBun = new THREE.Mesh(
+          new THREE.SphereGeometry(1.3, 18, 12, 0, Math.PI * 2, 0, Math.PI * 0.5),
+          new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.5 })
+        );
+        topBun.position.y = 1.0;
+        topBun.castShadow = true;
+        group.add(topBun);
+      } else if (type === 'drink') {
+        const cup = new THREE.Mesh(
+          new THREE.CylinderGeometry(1.1, 0.8, 2.8, 18),
+          new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.2 })
+        );
+        cup.position.y = 1.4;
+        cup.castShadow = true;
+        group.add(cup);
+
+        const lid = new THREE.Mesh(
+          new THREE.CylinderGeometry(1.15, 1.15, 0.18, 18),
+          new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.3 })
+        );
+        lid.position.y = 2.85;
+        group.add(lid);
+
+        height = 3.6;
+      } else if (type === 'donut') {
+        const donut = new THREE.Mesh(
+          new THREE.TorusGeometry(1.1, 0.55, 14, 28),
+          new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.6 })
+        );
+        donut.position.y = 1.3;
+        donut.rotation.x = Math.PI / 2.5;
+        donut.castShadow = true;
+        group.add(donut);
+
+        const icing = new THREE.Mesh(
+          new THREE.TorusGeometry(1.12, 0.42, 14, 28, Math.PI * 2),
+          new THREE.MeshStandardMaterial({ color: 0xf472b6, roughness: 0.2 })
+        );
+        icing.position.set(0, 1.35, 0.08);
+        icing.rotation.x = Math.PI / 2.5;
+        group.add(icing);
+      } else if (type === 'lollipop') {
+        const stick = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.12, 0.12, 2.4, 12),
+          new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2 })
+        );
+        stick.position.y = 1.2;
+        stick.castShadow = true;
+        group.add(stick);
+
+        const ringOuter = new THREE.Mesh(
+          new THREE.CylinderGeometry(1.0, 1.0, 0.25, 24),
+          new THREE.MeshStandardMaterial({ color: 0xf472b6, roughness: 0.2 })
+        );
+        ringOuter.position.y = 2.3;
+        ringOuter.rotation.x = Math.PI / 2;
+        group.add(ringOuter);
+
+        const ringMid = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.68, 0.68, 0.28, 24),
+          new THREE.MeshStandardMaterial({ color: 0xfde047, roughness: 0.2 })
+        );
+        ringMid.position.y = 2.3;
+        ringMid.rotation.x = Math.PI / 2;
+        group.add(ringMid);
+
+        const ringCenter = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.35, 0.35, 0.3, 24),
+          new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.2 })
+        );
+        ringCenter.position.y = 2.3;
+        ringCenter.rotation.x = Math.PI / 2;
+        group.add(ringCenter);
+
+        height = 3.3;
+      } else { // ketchup_puddle
+        const puddle = new THREE.Mesh(
+          new THREE.CylinderGeometry(1.5, 1.5, 0.08, 18),
+          new THREE.MeshStandardMaterial({ color: 0xb91c1c, roughness: 0.1, metalness: 0.2 })
+        );
+        puddle.position.y = 0.04;
+        group.add(puddle);
+
+        height = 0.4;
+        radius = 1.4;
+        requiresJump = true;
+      }
+
+      scene.add(group);
+      obstacles.push({ group, x, z, radius, height, requiresJump });
+    }
+
+    function createCoinPattern(startLaneIndex, startZ) {
+      const types = ['apple', 'banana', 'watermelon', 'carrot', 'broccoli', 'orange', 'kiwi', 'corn', 'strawberry', 'grape', 'pineapple'];
+      const count = selectedLevel === 1 ? 6 : (selectedLevel === 2 ? 4 : 3);
+      const highFoodIndex = Math.random() < 0.4 ? Math.floor(Math.random() * count) : -1;
+      const isStraight = (selectedLevel === 1) ? true : (selectedLevel === 2 ? Math.random() < 0.75 : false);
+
+      for (let i = 0; i < count; i++) {
+        const foodType = types[Math.floor(Math.random() * types.length)];
+        const zPos = startZ - i * 4.8;
+        let laneIdx = isStraight ? startLaneIndex : (startLaneIndex + (i % 2)) % 3;
+        let laneX = LANES[laneIdx];
+        
+        const isHigh = (i === highFoodIndex);
+
+        if (isHigh) {
+          const isLaneBlocked = (chkX) => {
+            return obstacles.some(obs => 
+              Math.abs(obs.x - chkX) < 0.5 && 
+              (obs.z > zPos - 18 && obs.z < zPos + 10)
+            );
+          };
+
+          if (isLaneBlocked(laneX)) {
+            const safeLanes = [0, 1, 2].filter(idx => !isLaneBlocked(LANES[idx]));
+            if (safeLanes.length > 0) {
+              laneIdx = safeLanes[Math.floor(Math.random() * safeLanes.length)];
+              laneX = LANES[laneIdx];
+            }
+          }
+        }
+
+        const yPos = isHigh ? 2.8 : 0.9;
+        const scoreValue = isHigh ? 25 : 10;
+
+        if (isHigh) {
+          const group = new THREE.Group();
+          group.position.set(laneX, yPos, zPos);
+
+          const sparkleMat = new THREE.SpriteMaterial({
+            map: getSparkleTexture(),
+            transparent: true,
+            depthTest: true,
+            depthWrite: false,
+            blending: THREE.AdditiveBlending
+          });
+          const sparkleSprite = new THREE.Sprite(sparkleMat);
+          sparkleSprite.scale.set(2.2, 2.2, 1);
+          group.add(sparkleSprite);
+
+          const foodSprite = createHealthyFoodMesh(foodType);
+          foodSprite.scale.set(1.5, 1.5, 1.5);
+          group.add(foodSprite);
+
+          scene.add(group);
+          coins.push({
+            group,
+            foodSprite,
+            sparkleSprite,
+            x: laneX,
+            y: yPos,
+            z: zPos,
+            collected: false,
+            isHigh: true,
+            scoreValue
+          });
+        } else {
+          const mesh = createHealthyFoodMesh(foodType);
+          mesh.position.set(laneX, yPos, zPos);
+          mesh.scale.set(1.4, 1.4, 1.4);
+          scene.add(mesh);
+          coins.push({
+            mesh,
+            x: laneX,
+            y: yPos,
+            z: zPos,
+            collected: false,
+            isHigh: false,
+            scoreValue
+          });
+        }
+      }
+    }
+
+    function createFinishGate(z) {
+      finishGateGroup = new THREE.Group();
+      finishGateGroup.position.set(0, 0, z);
+
+      [-4, 4].forEach(px => {
+        const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.8, 8, 12), new THREE.MeshStandardMaterial({ color: 0xfacc15 }));
+        pillar.position.set(px, 4, 0);
+        finishGateGroup.add(pillar);
+      });
+
+      const arch = new THREE.Mesh(new THREE.BoxGeometry(9.5, 1.8, 0.8), new THREE.MeshStandardMaterial({ color: 0x34d399 }));
+      arch.position.set(0, 7.5, 0);
+      finishGateGroup.add(arch);
+
+      const line = new THREE.Mesh(new THREE.BoxGeometry(8, 0.1, 0.4), new THREE.MeshStandardMaterial({ color: 0xf472b6 }));
+      line.position.set(0, 0.1, 0);
+      finishGateGroup.add(line);
+
+      scene.add(finishGateGroup);
+    }
+
+    function generateLevelContent() {
+      const config = LEVEL_CONFIGS[selectedLevel] || LEVEL_CONFIGS[1];
+      TRACK_LENGTH = config.distance;
+      RUN_SPEED = config.speed;
+
+      buildEnvironment();
+
+      obstacles.forEach(o => scene.remove(o.group));
+      obstacles = [];
+
+      coins.forEach(c => {
+        if (c.group) scene.remove(c.group);
+        if (c.mesh) scene.remove(c.mesh);
+      });
+      coins = [];
+
+      if (finishGateGroup) scene.remove(finishGateGroup);
+
+      maxPossibleScore = 0;
+
+      const obstacleTypes = ['fries', 'burger', 'drink', 'donut', 'lollipop', 'ketchup_puddle'];
+      const spacing = selectedLevel === 3 ? 28 : selectedLevel === 2 ? 34 : 45;
+
+      for (let z = -40; z > -TRACK_LENGTH + 50; z -= spacing) {
+        const laneChoice = Math.floor(Math.random() * 3);
+        const obstacleType = obstacleTypes[Math.floor(Math.random() * obstacleTypes.length)];
+
+        createObstacle(obstacleType, LANES[laneChoice], z);
+
+        const coinLane = (laneChoice + 1) % 3;
+        createCoinPattern(coinLane, z + 20);
+
+        if (selectedLevel === 1) {
+          const coinLane2 = (laneChoice + 2) % 3;
+          createCoinPattern(coinLane2, z + 10);
+        }
+      }
+
+      maxPossibleScore = 0;
+      const rowMap = new Map();
+      coins.forEach(c => {
+        const rowKey = Math.round(c.z / 2) * 2;
+        const currentMax = rowMap.get(rowKey) || 0;
+        if (c.scoreValue > currentMax) {
+          rowMap.set(rowKey, c.scoreValue);
+        }
+      });
+      
+      rowMap.forEach(rowMaxScore => {
+        maxPossibleScore += rowMaxScore;
+      });
+
+      createFinishGate(-TRACK_LENGTH);
+    }
+
+    async function initARCamera() {
+      const videoEl = document.getElementById('ar-camera-feed');
+      try {
+        if (cameraStream) {
+          stopARCamera();
+        }
+
+        cameraStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+          audio: false
+        });
+        
+        videoEl.srcObject = cameraStream;
+        videoEl.classList.remove('hidden');
+
+        if (window.Pose) {
+          mpPose = new Pose({
+            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
+          });
+
+          mpPose.setOptions({
+            modelComplexity: 0,
+            smoothLandmarks: true,
+            minDetectionConfidence: 0.5,
+            minTrackingConfidence: 0.5
+          });
+
+          mpPose.onResults(onPoseResults);
+
+          if (window.Camera) {
+            mpCameraUtils = new Camera(videoEl, {
+              onFrame: async () => {
+                if (gameMode === 'AR' && gameState === 'PLAYING') {
+                  await mpPose.send({ image: videoEl });
+                }
+              },
+              width: 320,
+              height: 240
+            });
+            mpCameraUtils.start();
+          }
+        }
+      } catch (err) {
+        console.warn('Front camera access denied or unavailable:', err);
+        videoEl.classList.add('hidden');
+      }
+    }
+
+    function onPoseResults(results) {
+      if (gameState !== 'PLAYING' || gameMode !== 'AR') return;
+
+      const statusEl = document.getElementById('ar-motion-text');
+      const sensTag = document.getElementById('ar-sensitivity-tag');
+
+      if (results.poseLandmarks && results.poseLandmarks.length > 0) {
+        const nose = results.poseLandmarks[0];
+        const leftShoulder = results.poseLandmarks[11];
+        const rightShoulder = results.poseLandmarks[12];
+
+        const posX = (nose.x + leftShoulder.x + rightShoulder.x) / 3;
+        const posY = (nose.y + leftShoulder.y + rightShoulder.y) / 3;
+
+        // Detect Vertical / Portrait Screen & iPad/Tablet device layout
+        const isPortrait = window.innerHeight > window.innerWidth;
+        const isIPadOrTablet = (navigator.maxTouchPoints && navigator.maxTouchPoints > 2) || /iPad|Macintosh/i.test(navigator.userAgent);
+
+        // Show High Sensitivity indicator badge when screen is vertical / side camera
+        if (sensTag) {
+          if (isPortrait) {
+            sensTag.classList.remove('hidden');
+            if (isIPadOrTablet) {
+              sensTag.textContent = '⚡ ULTRA SENS (iPad Side Cam)';
+            } else {
+              sensTag.textContent = '⚡ HIGH SENS';
+            }
+          } else {
+            sensTag.classList.add('hidden');
+          }
+        }
+
+        // Boost sensitivity for vertical screen / iPad side camera placement
+        // Standard landscape offset threshold from center (0.5) is 0.08 (0.58 / 0.42)
+        // Reduced side offset threshold to 0.022 for iPad in vertical mode so subtle tilts trigger lane changes easily
+        const sideOffsetThresh = isPortrait ? (isIPadOrTablet ? 0.022 : 0.032) : 0.08;
+        const jumpSensitivityThresh = isPortrait ? (isIPadOrTablet ? 0.032 : 0.045) : 0.075;
+
+        const leftThresh = 0.5 + sideOffsetThresh;
+        const rightThresh = 0.5 - sideOffsetThresh;
+
+        if (baselineHeadY === null) {
+          baselineHeadY = posY;
+        } else {
+          baselineHeadY = baselineHeadY * 0.95 + posY * 0.05;
+        }
+
+        if (posX > leftThresh) {
+          if (currentLane !== 0) {
+            currentLane = 0;
+          }
+          if (statusEl) statusEl.textContent = 'LEFT ⬅️';
+        } else if (posX < rightThresh) {
+          if (currentLane !== 2) {
+            currentLane = 2;
+          }
+          if (statusEl) statusEl.textContent = 'RIGHT ➡️';
+        } else {
+          if (currentLane !== 1) {
+            currentLane = 1;
+          }
+          if (statusEl) statusEl.textContent = 'CENTER 🎯';
+        }
+
+        if (baselineHeadY - posY > jumpSensitivityThresh && !isJumping && !jumpCooldown) {
+          jump();
+          if (statusEl) statusEl.textContent = 'JUMP! 🦘';
+          jumpCooldown = true;
+          setTimeout(() => { jumpCooldown = false; }, 600);
+        }
+      }
+    }
+
+    function stopARCamera() {
+      const videoEl = document.getElementById('ar-camera-feed');
+      if (mpCameraUtils) {
+        try { mpCameraUtils.stop(); } catch(e){}
+        mpCameraUtils = null;
+      }
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+        cameraStream = null;
+      }
+      videoEl.srcObject = null;
+      videoEl.classList.add('hidden');
+    }
+
+    function moveLane(dir) {
+      if (gameState !== 'PLAYING') return;
+      currentLane = Math.max(0, Math.min(2, currentLane + dir));
+    }
+
+    function jump() {
+      if (gameState !== 'PLAYING' || isJumping) return;
+      isJumping = true;
+      playerVY = 12.5;
+      sound.playJump();
+    }
+
+    function togglePause() {
+      if (gameState === 'PLAYING') {
+        gameState = 'PAUSED';
+        sound.stopBGM();
+        document.getElementById('pause-screen').classList.remove('hidden');
+      } else if (gameState === 'PAUSED') {
+        gameState = 'PLAYING';
+        sound.startBGM();
+        document.getElementById('pause-screen').classList.add('hidden');
+        clock.getDelta();
+      }
+    }
+
+    function showPage(pageId) {
+      sound.playClick();
+      ['page-cover', 'page-difficulty', 'page-gender'].forEach(id => {
+        document.getElementById(id).classList.add('hidden');
+      });
+      document.getElementById(pageId).classList.remove('hidden');
+    }
+
+    function selectAvatar(type) {
+      selectedAvatar = type;
+      const boyBtn = document.getElementById('select-boy');
+      const girlBtn = document.getElementById('select-girl');
+      const badgeBoy = document.getElementById('badge-boy');
+      const badgeGirl = document.getElementById('badge-girl');
+
+      if (type === 'boy') {
+        boyBtn.className = "avatar-card p-4 rounded-2xl border-2 border-pink-300 bg-pink-400/20 flex flex-col items-center cursor-pointer transition-all hover:scale-105";
+        badgeBoy.textContent = "✓ SELECTED";
+        badgeBoy.className = "text-xs text-emerald-300 font-bold mt-2";
+        girlBtn.className = "avatar-card p-4 rounded-2xl border-2 border-white/20 bg-slate-800/50 flex flex-col items-center cursor-pointer transition-all hover:bg-slate-700/50 hover:scale-105";
+        badgeGirl.textContent = "SELECT";
+        badgeGirl.className = "text-xs text-slate-400 font-bold mt-2";
+      } else {
+        girlBtn.className = "avatar-card p-4 rounded-2xl border-2 border-pink-300 bg-pink-400/20 flex flex-col items-center cursor-pointer transition-all hover:scale-105";
+        badgeGirl.textContent = "✓ SELECTED";
+        badgeGirl.className = "text-xs text-emerald-300 font-bold mt-2";
+        boyBtn.className = "avatar-card p-4 rounded-2xl border-2 border-white/20 bg-slate-800/50 flex flex-col items-center cursor-pointer transition-all hover:bg-slate-700/50 hover:scale-105";
+        badgeBoy.textContent = "SELECT";
+        badgeBoy.className = "text-xs text-slate-400 font-bold mt-2";
+      }
+      sound.playClick();
+      createPlayer();
+    }
+
+    function selectLevel(lvl) {
+      selectedLevel = lvl;
+      sound.playClick();
+
+      [1, 2, 3].forEach(i => {
+        const card = document.getElementById(`lvl-card-${i}`);
+        const badge = document.getElementById(`badge-lvl-${i}`);
+        if (i === lvl) {
+          card.className = "w-full p-3.5 rounded-2xl border-2 border-emerald-300 bg-emerald-400/20 flex items-center justify-between cursor-pointer transition-all scale-[1.02]";
+          badge.textContent = "✓ SELECTED";
+          badge.className = "text-emerald-300 font-bold text-sm";
+        } else {
+          card.className = "w-full p-3.5 rounded-2xl border-2 border-white/20 bg-slate-800/50 flex items-center justify-between cursor-pointer transition-all hover:bg-slate-700/50 hover:scale-[1.02]";
+          badge.textContent = "SELECT";
+          badge.className = "text-slate-400 font-bold text-sm";
+        }
+      });
+    }
+
+    function selectModeAndProceed(mode) {
+      gameMode = mode;
+      sound.playClick();
+
+      if (mode === 'AR') {
+        initARCamera();
+        if (scene) {
+          scene.background = null;
+          scene.fog = null;
+        }
+      } else {
+        stopARCamera();
+        if (scene) {
+          scene.background = new THREE.Color(0xa5f3fc);
+          scene.fog = new THREE.FogExp2(0xa5f3fc, 0.007);
+        }
+      }
+
+      showPage('page-difficulty');
+    }
+
+    function showStartScreen() {
+      sound.stopBGM();
+      stopARCamera();
+      gameState = 'START';
+
+      document.getElementById('hud').classList.add('hidden');
+      document.getElementById('mobile-controls').classList.add('hidden');
+      document.getElementById('gameover-screen').classList.add('hidden');
+      document.getElementById('victory-screen').classList.add('hidden');
+      document.getElementById('pause-screen').classList.add('hidden');
+      document.getElementById('countdown-overlay').classList.add('hidden');
+      document.getElementById('site-header').classList.remove('hidden');
+      
+      showPage('page-cover');
+
+      camera.position.set(0, 3.8, 7.5);
+      playerGroup.position.set(0, 0, 0);
+      currentCamX = 0;
+      currentLookX = 0;
+    }
+
+    function launchCountdownAndStart() {
+      sound.init();
+      sound.playClick();
+
+      ['page-cover', 'page-difficulty', 'page-gender'].forEach(id => {
+        document.getElementById(id).classList.add('hidden');
+      });
+
+      document.getElementById('site-header').classList.add('hidden');
+
+      const overlay = document.getElementById('countdown-overlay');
+      const textEl = document.getElementById('countdown-text');
+      overlay.classList.remove('hidden');
+
+      gameState = 'COUNTDOWN';
+
+      const sequence = [
+        { text: '3', pitch: 520 },
+        { text: '2', pitch: 600 },
+        { text: '1', pitch: 680 },
+        { text: 'GO!', pitch: 880 }
+      ];
+
+      let step = 0;
+
+      function triggerStep() {
+        if (step < sequence.length) {
+          const item = sequence[step];
+          textEl.textContent = item.text;
+          textEl.className = "game-font text-8xl sm:text-9xl text-transparent bg-clip-text bg-gradient-to-r from-pink-300 via-purple-200 to-sky-300 drop-shadow-[0_10px_20px_rgba(0,0,0,0.8)] count-anim";
+          
+          sound.playBeep(item.pitch);
+
+          step++;
+          setTimeout(triggerStep, 700);
+        } else {
+          overlay.classList.add('hidden');
+          startGame();
+        }
+      }
+
+      triggerStep();
+    }
+
+    function setupControls() {
+      // Header Modals
+      const howToPlayModal = document.getElementById('modal-howtoplay');
+      const leaderboardModal = document.getElementById('modal-leaderboard');
+
+      document.getElementById('nav-howtoplay').addEventListener('click', () => {
+        sound.playClick();
+        howToPlayModal.classList.remove('hidden');
+      });
+      document.getElementById('close-howtoplay').addEventListener('click', () => howToPlayModal.classList.add('hidden'));
+      document.getElementById('btn-close-howtoplay-bottom').addEventListener('click', () => howToPlayModal.classList.add('hidden'));
+
+      document.getElementById('nav-leaderboard').addEventListener('click', () => {
+        sound.playClick();
+        loadHighScores();
+        leaderboardModal.classList.remove('hidden');
+      });
+      document.getElementById('close-leaderboard').addEventListener('click', () => leaderboardModal.classList.add('hidden'));
+      document.getElementById('btn-close-leaderboard-bottom').addEventListener('click', () => leaderboardModal.classList.add('hidden'));
+
+      document.getElementById('brand-logo').addEventListener('click', () => {
+        showStartScreen();
+      });
+
+      const musicBtn = document.getElementById('btn-music-toggle');
+      if (musicBtn) {
+        musicBtn.addEventListener('click', () => {
+          const muted = sound.toggleMute();
+          musicBtn.textContent = muted ? '🔇' : '🎵';
+        });
+      }
+
+      document.getElementById('btn-pause').addEventListener('click', () => {
+        sound.playClick();
+        togglePause();
+      });
+
+      document.getElementById('pause-resume-btn').addEventListener('click', () => {
+        sound.playClick();
+        togglePause();
+      });
+
+      document.getElementById('pause-mainmenu-btn').addEventListener('click', () => {
+        sound.playClick();
+        showStartScreen();
+      });
+
+      document.getElementById('btn-mode-virtual').addEventListener('click', () => selectModeAndProceed('VIRTUAL'));
+      document.getElementById('btn-mode-ar').addEventListener('click', () => selectModeAndProceed('AR'));
+
+      document.getElementById('btn-diff-back').addEventListener('click', () => showPage('page-cover'));
+      document.getElementById('btn-goto-gender').addEventListener('click', () => showPage('page-gender'));
+      document.getElementById('btn-gender-back').addEventListener('click', () => showPage('page-difficulty'));
+
+      document.getElementById('lvl-card-1').addEventListener('click', () => selectLevel(1));
+      document.getElementById('lvl-card-2').addEventListener('click', () => selectLevel(2));
+      document.getElementById('lvl-card-3').addEventListener('click', () => selectLevel(3));
+
+      document.getElementById('select-boy').addEventListener('click', () => selectAvatar('boy'));
+      document.getElementById('select-girl').addEventListener('click', () => selectAvatar('girl'));
+
+      document.getElementById('btn-launch-run').addEventListener('click', launchCountdownAndStart);
+
+      window.addEventListener('keydown', (e) => {
+        if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') {
+          if (gameState === 'PLAYING' || gameState === 'PAUSED') {
+            togglePause();
+            return;
+          }
+        }
+
+        if (gameState !== 'PLAYING') return;
+
+        if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+          moveLane(-1);
+        } else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+          moveLane(1);
+        } else if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W' || e.key === ' ') {
+          jump();
+        }
+      });
+
+      let touchStartX = 0;
+      let touchStartY = 0;
+
+      window.addEventListener('touchstart', (e) => {
+        sound.init();
+        if (e.touches.length > 0) {
+          touchStartX = e.touches[0].clientX;
+          touchStartY = e.touches[0].clientY;
+        }
+      }, { passive: true });
+
+      window.addEventListener('touchend', (e) => {
+        if (gameState !== 'PLAYING' || !e.changedTouches.length) return;
+
+        const deltaX = e.changedTouches[0].clientX - touchStartX;
+        const deltaY = e.changedTouches[0].clientY - touchStartY;
+
+        if (Math.abs(deltaX) > Math.abs(deltaY)) {
+          if (deltaX > 35) moveLane(1);
+          else if (deltaX < -35) moveLane(-1);
+        } else {
+          if (deltaY < -35) jump();
+        }
+      }, { passive: true });
+
+      document.getElementById('btn-left').addEventListener('click', () => { sound.playClick(); moveLane(-1); });
+      document.getElementById('btn-right').addEventListener('click', () => { sound.playClick(); moveLane(1); });
+      document.getElementById('btn-jump').addEventListener('click', () => { sound.playClick(); jump(); });
+
+      document.getElementById('restart-btn').addEventListener('click', () => {
+        sound.playClick();
+        showStartScreen();
+      });
+
+      document.getElementById('playagain-btn').addEventListener('click', () => {
+        sound.playClick();
+        showStartScreen();
+      });
+    }
+
+    function startGame() {
+      sound.init();
+      sound.startBGM();
+
+      gameState = 'PLAYING';
+      currentLane = 1;
+      playerX = 0;
+      playerY = 0;
+      playerVY = 0;
+      currentCamX = 0;
+      currentLookX = 0;
+      isJumping = false;
+      lives = 3;
+      score = 0;
+      distanceTravelled = 0;
+      invulnerableTimer = 0;
+      baselineHeadY = null;
+
+      generateLevelContent();
+      updateHUD();
+
+      document.getElementById('gameover-screen').classList.add('hidden');
+      document.getElementById('victory-screen').classList.add('hidden');
+      document.getElementById('pause-screen').classList.add('hidden');
+      document.getElementById('hud').classList.remove('hidden');
+
+      const arStatusEl = document.getElementById('ar-motion-status');
+      if (gameMode === 'AR') {
+        arStatusEl.classList.remove('hidden');
+      } else {
+        arStatusEl.classList.add('hidden');
+      }
+
+      if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+        document.getElementById('mobile-controls').classList.remove('hidden');
+      }
+
+      clock.start();
+    }
+
+    function triggerGameOver() {
+      gameState = 'GAMEOVER';
+      sound.stopBGM();
+      sound.playHit();
+
+      saveHighScore(selectedLevel, score);
+
+      document.getElementById('go-coins').textContent = score;
+      document.getElementById('go-distance').textContent = Math.floor(distanceTravelled) + 'm';
+      document.getElementById('gameover-screen').classList.remove('hidden');
+    }
+
+    function triggerVictory() {
+      gameState = 'VICTORY';
+      sound.stopBGM();
+      sound.playWin();
+
+      saveHighScore(selectedLevel, score);
+
+      const totalLevelScore = Math.max(maxPossibleScore, 1);
+      const percentage = Math.min(100, Math.round((score / totalLevelScore) * 100));
+
+      let starCount = 1;
+      if (percentage >= 85) starCount = 5;
+      else if (percentage >= 70) starCount = 4;
+      else if (percentage >= 50) starCount = 3;
+      else if (percentage >= 30) starCount = 2;
+      else starCount = 1;
+
+      const stars = '⭐'.repeat(starCount);
+
+      document.getElementById('vic-coins').textContent = `${score} / ${totalLevelScore} (${percentage}%)`;
+      document.getElementById('vic-rating').textContent = stars;
+      document.getElementById('victory-screen').classList.remove('hidden');
+
+      spawnConfettiShower();
+    }
+
+    function updateHUD() {
+      document.getElementById('score-text').textContent = score;
+
+      const progress = Math.min(100, (distanceTravelled / TRACK_LENGTH) * 100);
+      document.getElementById('progress-bar-fill').style.width = progress + '%';
+      document.getElementById('distance-text').textContent = Math.max(0, Math.floor(TRACK_LENGTH - distanceTravelled)) + 'm';
+      
+      document.getElementById('level-hud-label').textContent = `LVL ${selectedLevel}`;
+
+      const modeBadge = document.getElementById('hud-mode-badge');
+      if (modeBadge) {
+        modeBadge.textContent = gameMode === 'AR' ? '📷 AR' : '🌐 VIRTUAL';
+      }
+
+      ['heart-1', 'heart-2', 'heart-3'].forEach((id, idx) => {
+        const heartEl = document.getElementById(id);
+        if (idx < lives) {
+          heartEl.style.opacity = '1';
+          heartEl.style.transform = 'scale(1)';
+        } else {
+          heartEl.style.opacity = '0.2';
+          heartEl.style.transform = 'scale(0.7)';
+        }
+      });
+    }
+
+    function createScorePopup(text, x, y, isHigh = false) {
+      const container = document.getElementById('popups-container');
+      const el = document.createElement('div');
+      el.className = isHigh ? 'popup-text popup-text-high' : 'popup-text';
+      el.textContent = text;
+      el.style.left = (window.innerWidth / 2 + (x * 40)) + 'px';
+      el.style.top = (window.innerHeight / 2 - (isHigh ? 80 : 50)) + 'px';
+      container.appendChild(el);
+
+      setTimeout(() => el.remove(), 800);
+    }
+
+    function triggerScreenShake() {
+      const container = document.getElementById('game-container');
+      container.classList.add('shake');
+      const flash = document.getElementById('damage-flash');
+      flash.style.opacity = '1';
+
+      setTimeout(() => {
+        container.classList.remove('shake');
+        flash.style.opacity = '0';
+      }, 400);
+    }
+
+    function spawnConfettiShower() {
+      for (let i = 0; i < 80; i++) {
+        const pGeo = new THREE.BoxGeometry(0.2, 0.2, 0.05);
+        const colors = [0xf472b6, 0x38bdf8, 0xfde047, 0x4ade80, 0xc084fc];
+        const pMat = new THREE.MeshBasicMaterial({ color: colors[i % colors.length] });
+        const particle = new THREE.Mesh(pGeo, pMat);
+
+        particle.position.set(
+          (Math.random() - 0.5) * 10,
+          8 + Math.random() * 5,
+          -TRACK_LENGTH + (Math.random() - 0.5) * 5
+        );
+
+        particle.userData = {
+          vy: -Math.random() * 4 - 2,
+          vx: (Math.random() - 0.5) * 3,
+          vr: Math.random() * 5
+        };
+
+        particles.push(particle);
+        scene.add(particle);
+      }
+    }
+
+    function updateGame(delta) {
+      if (gameState !== 'PLAYING') return;
+
+      distanceTravelled += RUN_SPEED * delta;
+      playerGroup.position.z = -distanceTravelled;
+
+      if (distanceTravelled >= TRACK_LENGTH) {
+        triggerVictory();
+        return;
+      }
+
+      const targetX = LANES[currentLane];
+      playerX += (targetX - playerX) * 14 * delta;
+      playerGroup.position.x = playerX;
+
+      playerMesh.rotation.z = (playerX - targetX) * 0.15;
+
+      if (isJumping) {
+        playerY += playerVY * delta;
+        playerVY += JUMP_GRAVITY * delta;
+
+        if (playerY <= 0) {
+          playerY = 0;
+          isJumping = false;
+          playerVY = 0;
+        }
+      }
+      playerGroup.position.y = playerY;
+
+      if (!isJumping) {
+        const time = clock.getElapsedTime() * 15;
+        const leftLeg = playerMesh.getObjectByName('leftLeg');
+        const rightLeg = playerMesh.getObjectByName('rightLeg');
+        if (leftLeg && rightLeg) {
+          leftLeg.rotation.x = Math.sin(time) * 0.7;
+          rightLeg.rotation.x = -Math.sin(time) * 0.7;
+        }
+      }
+
+      if (invulnerableTimer > 0) {
+        invulnerableTimer -= delta;
+        playerMesh.visible = Math.floor(clock.getElapsedTime() * 20) % 2 === 0;
+      } else {
+        playerMesh.visible = true;
+      }
+
+      const time = clock.getElapsedTime();
+      coins.forEach(c => {
+        if (!c.collected) {
+          if (c.isHigh) {
+            c.group.position.y = c.y + Math.sin(time * 4 + c.z) * 0.15;
+            c.foodSprite.material.rotation += delta * 1.0;
+            c.sparkleSprite.material.rotation -= delta * 1.6;
+
+            const dz = Math.abs(c.z - playerGroup.position.z);
+            const dx = Math.abs(c.x - playerX);
+            const dy = Math.abs(c.group.position.y - (playerY + 1.0));
+
+            if (dz < 2.0 && dx < 1.35 && dy < 1.2) {
+              c.collected = true;
+              c.group.visible = false;
+              score += c.scoreValue;
+              sound.playCoin();
+              createScorePopup("⭐ +" + c.scoreValue, c.x, c.y, true);
+              updateHUD();
+            }
+          } else {
+            c.mesh.position.y = c.y + Math.sin(time * 4 + c.z) * 0.12;
+
+            const dz = Math.abs(c.z - playerGroup.position.z);
+            const dx = Math.abs(c.x - playerX);
+            const dy = Math.abs(c.mesh.position.y - (playerY + 1.0));
+
+            if (dz < 1.4 && dx < 1.0 && dy < 1.3) {
+              c.collected = true;
+              c.mesh.visible = false;
+              score += c.scoreValue;
+              sound.playCoin();
+              createScorePopup("+" + c.scoreValue, c.x, c.y, false);
+              updateHUD();
+            }
+          }
+        }
+      });
+
+      if (invulnerableTimer <= 0) {
+        obstacles.forEach(obs => {
+          const dz = Math.abs(obs.z - playerGroup.position.z);
+          const dx = Math.abs(obs.x - playerX);
+
+          if (dz < obs.radius && dx < 0.9) {
+            if (obs.requiresJump && playerY > 0.6) {
+              // Jumped over obstacle safely
+            } else if (playerY < obs.height * 0.7) {
+              lives--;
+              invulnerableTimer = 1.2;
+              sound.playHit();
+              triggerScreenShake();
+              updateHUD();
+
+              if (lives <= 0) {
+                triggerGameOver();
+              }
+            }
+          }
+        });
+      }
+
+      updateHUD();
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      const delta = Math.min(clock.getDelta(), 0.1);
+
+      updateGame(delta);
+
+      if (playerGroup && (gameState === 'PLAYING' || gameState === 'COUNTDOWN')) {
+        const targetCamX = playerGroup.position.x * 0.4;
+        const targetLookX = playerGroup.position.x * 0.2;
+
+        currentCamX += (targetCamX - currentCamX) * 6.0 * delta;
+        currentLookX += (targetLookX - currentLookX) * 6.0 * delta;
+
+        camera.position.z = playerGroup.position.z + 7.5;
+        camera.position.x = currentCamX;
+        camera.position.y = 3.8 + playerY * 0.3;
+
+        camera.rotation.z = (currentCamX - targetCamX) * 0.025;
+
+        camera.lookAt(currentLookX, 1.5 + playerY * 0.2, playerGroup.position.z - 10);
+      }
+
+      particles.forEach(p => {
+        p.position.y += p.userData.vy * delta;
+        p.position.x += p.userData.vx * delta;
+        p.rotation.x += p.userData.vr * delta;
+      });
+
+      renderer.render(scene, camera);
+    }
+
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    window.onload = function() {
+      initScene();
+      setupControls();
+      loadHighScores();
+      animate();
+    };
+  </script>
+</body>
+</html>
