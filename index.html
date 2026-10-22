@@ -2226,12 +2226,20 @@
         currentLookX += (targetLookX - currentLookX) * 6.0 * delta;
 
         camera.position.z = playerGroup.position.z + 7.5;
-        camera.position.x = currentCamX;
-        camera.position.y = 3.8 + playerY * 0.3;
-
-        camera.rotation.z = (currentCamX - targetCamX) * 0.025;
-
-        camera.lookAt(currentLookX, 1.5 + playerY * 0.2, playerGroup.position.z - 10);
+        if (gameMode === 'VIDEO') {
+          // Strong, unmistakable up-down camera bounce when the high-food
+          // reward approaches. This visual cue is intended to prompt students
+          // to imitate a jump, rather than merely animate a hidden runner.
+          camera.position.x = currentCamX;
+          camera.position.y = 3.8 + playerY * 2.0;
+          camera.rotation.z = (currentCamX - targetCamX) * 0.045;
+          camera.lookAt(currentLookX, 1.5 + playerY * 1.15, playerGroup.position.z - 10);
+        } else {
+          camera.position.x = currentCamX;
+          camera.position.y = 3.8 + playerY * 0.3;
+          camera.rotation.z = (currentCamX - targetCamX) * 0.025;
+          camera.lookAt(currentLookX, 1.5 + playerY * 0.2, playerGroup.position.z - 10);
+        }
       }
 
       particles.forEach(p => {
@@ -2282,6 +2290,10 @@
     // scoring, lives, or individual controls.
     let videoModeStartedAt = 0;
     let videoModeRemaining = 40;
+    let videoTargetLane = 0;
+    let videoLaneX = -1.7;
+    let videoJumpUntil = 0;
+    let videoJumpTriggeredFor = new Set();
     const VIDEO_LEVEL_DURATIONS = { 1: 40, 2: 80, 3: 120 };
     function getVideoDuration() { return VIDEO_LEVEL_DURATIONS[selectedLevel] || 40; }
     let originalGenerateLevelContent = generateLevelContent;
@@ -2337,42 +2349,39 @@
         const obstacleType = obstacleTypes[Math.floor(Math.random() * obstacleTypes.length)];
         createObstacle(obstacleType, LANES[blockedLane], z);
 
-        // Keep the same low/high healthy-food style and approximate spawn
-        // frequency as the existing modes, adapted to the two available lanes.
-        for (let lane = 0; lane < 2; lane++) {
-          if (lane === blockedLane && Math.random() < 0.75) continue;
-          const type = foodTypes[Math.floor(Math.random() * foodTypes.length)];
-          const high = Math.random() < 0.4;
-          const x = LANES[lane];
-          const y = high ? 2.8 : 0.9;
-          const food = createHealthyFoodMesh(type);
-          food.scale.set(high ? 1.5 : 1.4, high ? 1.5 : 1.4, 1);
-          if (high) {
-            const group = new THREE.Group();
-            group.position.set(x, y, z - 10);
-            const sparkle = new THREE.Sprite(new THREE.SpriteMaterial({
-              map: getSparkleTexture(), transparent: true, depthTest: true,
-              depthWrite: false, blending: THREE.AdditiveBlending
-            }));
-            // Keep the glow BEHIND the food emoji, like a soft halo rather
-            // than a bright overlay covering the fruit/vegetable itself.
-            sparkle.position.z = -0.18;
-            sparkle.scale.set(3.0, 3.0, 1);
-            sparkle.material.opacity = 0.82;
-            sparkle.material.depthTest = true;
-            sparkle.material.depthWrite = false;
-            sparkle.material.blending = THREE.AdditiveBlending;
-            sparkle.renderOrder = 1;
-            food.renderOrder = 2;
-            group.add(sparkle);
-            group.add(food);
-            scene.add(group);
-            coins.push({ group, foodSprite: food, sparkleSprite: sparkle, x, y, z: z - 10, collected: false, isHigh: true, scoreValue: 0 });
-          } else {
-            food.position.set(x, y, z - 10);
-            scene.add(food);
-            coins.push({ mesh: food, x, y, z: z - 10, collected: false, isHigh: false, scoreValue: 0 });
-          }
+        // One healthy-food reward per row only: never spawn foods side-by-side.
+        // Prefer the lane not occupied by the obstacle, creating one clear route.
+        const foodLane = 1 - blockedLane;
+        const type = foodTypes[Math.floor(Math.random() * foodTypes.length)];
+        const high = Math.random() < 0.4;
+        const x = LANES[foodLane];
+        const y = high ? 2.8 : 0.9;
+        const food = createHealthyFoodMesh(type);
+        food.scale.set(high ? 1.5 : 1.4, high ? 1.5 : 1.4, high ? 1.5 : 1.4);
+        if (high) {
+          const group = new THREE.Group();
+          group.position.set(x, y, z - 10);
+          const sparkle = new THREE.Sprite(new THREE.SpriteMaterial({
+            map: getSparkleTexture(), transparent: true, depthTest: true,
+            depthWrite: false, blending: THREE.AdditiveBlending
+          }));
+          // Keep the glow behind the food emoji.
+          sparkle.position.z = -0.18;
+          sparkle.scale.set(3.0, 3.0, 1);
+          sparkle.material.opacity = 0.82;
+          sparkle.material.depthTest = true;
+          sparkle.material.depthWrite = false;
+          sparkle.material.blending = THREE.AdditiveBlending;
+          sparkle.renderOrder = 1;
+          food.renderOrder = 2;
+          group.add(sparkle);
+          group.add(food);
+          scene.add(group);
+          coins.push({ group, foodSprite: food, sparkleSprite: sparkle, x, y, z: z - 10, collected: false, isHigh: true, scoreValue: 0 });
+        } else {
+          food.position.set(x, y, z - 10);
+          scene.add(food);
+          coins.push({ mesh: food, x, y, z: z - 10, collected: false, isHigh: false, scoreValue: 0 });
         }
       }
       maxPossibleScore = 0;
@@ -2383,6 +2392,7 @@
       sound.stopBGM();
       gameState = 'PLAYING';
       currentLane = 0; playerX = 0; playerY = 0; playerVY = 0;
+      videoTargetLane = 0; videoLaneX = -1.7; videoJumpUntil = 0; videoJumpTriggeredFor = new Set();
       currentCamX = 0; currentLookX = 0; isJumping = false;
       lives = 3; score = 0; distanceTravelled = 0; invulnerableTimer = 0;
       baselineHeadY = null;
@@ -2432,8 +2442,45 @@
       // The main animate() loop follows playerGroup.position.z and would
       // otherwise reset the camera to the starting point every frame.
       if (playerGroup) playerGroup.position.z = travelZ;
-      camera.position.set(0, 3.8, travelZ + 7.5);
-      camera.lookAt(0, 1.5, travelZ - 10);
+
+      // Visual route guidance for Video Mode: move away from unhealthy-food
+      // obstacles and follow the lane containing a high healthy-food reward.
+      const laneXs = [-1.7, 1.7];
+      const aheadGap = (item) => travelZ - item.z;
+      const upcomingObstacle = obstacles
+        .filter(o => o && typeof o.z === 'number' && aheadGap(o) > -4 && aheadGap(o) < 24)
+        .sort((a, b) => aheadGap(a) - aheadGap(b))[0];
+
+      if (upcomingObstacle) {
+        const blockedLane = Math.abs(upcomingObstacle.x - laneXs[0]) < Math.abs(upcomingObstacle.x - laneXs[1]) ? 0 : 1;
+        videoTargetLane = 1 - blockedLane;
+      } else {
+        const nextHighFood = coins
+          .filter(c => c.isHigh && !c.collected && aheadGap(c) > -2 && aheadGap(c) < 18)
+          .sort((a, b) => aheadGap(a) - aheadGap(b))[0];
+        if (nextHighFood) {
+          videoTargetLane = Math.abs(nextHighFood.x - laneXs[0]) < Math.abs(nextHighFood.x - laneXs[1]) ? 0 : 1;
+          const key = String(nextHighFood.z);
+          if (aheadGap(nextHighFood) > 0 && aheadGap(nextHighFood) < 12 && !videoJumpTriggeredFor.has(key)) {
+            // Trigger the full camera bounce as the high food approaches.
+            videoJumpUntil = performance.now() + 1100;
+            videoJumpTriggeredFor.add(key);
+          }
+        }
+      }
+
+      const desiredX = laneXs[videoTargetLane];
+      videoLaneX += (desiredX - videoLaneX) * Math.min(1, delta * 8.5);
+      if (playerGroup) {
+        playerGroup.position.x = videoLaneX;
+        const jumpProgress = Math.max(0, Math.min(1, (videoJumpUntil - performance.now()) / 1100));
+        playerY = jumpProgress > 0 ? Math.sin((1 - jumpProgress) * Math.PI) * 2.2 : 0;
+      }
+      // Make the VIEW itself bounce vertically when approaching a high
+      // healthy-food reward, so students can imitate the jump action.
+      // Keep the camera's lane shift smooth to demonstrate left/right movement.
+      camera.position.set(videoLaneX * 0.4, 3.8 + playerY * 1.15, travelZ + 7.5);
+      camera.lookAt(videoLaneX * 0.2, 1.5 + playerY * 0.7, travelZ - 10);
       document.getElementById('distance-text').textContent =
         `${String(Math.floor(videoModeRemaining / 60)).padStart(2,'0')}:${String(Math.floor(videoModeRemaining % 60)).padStart(2,'0')}`;
       document.getElementById('progress-bar-fill').style.width = ((duration - videoModeRemaining) / duration * 100) + '%';
