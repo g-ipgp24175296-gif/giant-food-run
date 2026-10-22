@@ -2377,14 +2377,14 @@
           group.add(sparkle);
           group.add(food);
           scene.add(group);
-          coins.push({ group, foodSprite: food, sparkleSprite: sparkle, x, y, z: z - 10, collected: false, isHigh: true, scoreValue: 0 });
+          coins.push({ group, foodSprite: food, sparkleSprite: sparkle, x, y, z: z - 10, collected: false, isHigh: true, scoreValue: 20 });
         } else {
           food.position.set(x, y, z - 10);
           scene.add(food);
-          coins.push({ mesh: food, x, y, z: z - 10, collected: false, isHigh: false, scoreValue: 0 });
+          coins.push({ mesh: food, x, y, z: z - 10, collected: false, isHigh: false, scoreValue: 10 });
         }
       }
-      maxPossibleScore = 0;
+      maxPossibleScore = coins.reduce((sum, c) => sum + c.scoreValue, 0);
     }
 
     startGame = function() {
@@ -2418,12 +2418,12 @@
       document.getElementById('mobile-controls').classList.add('hidden');
       document.getElementById('ar-motion-status').classList.add('hidden');
       document.getElementById('site-header').classList.add('hidden');
-      document.getElementById('score-text').textContent = '—';
+      document.getElementById('score-text').textContent = '0';
       document.getElementById('level-hud-label').textContent = ['EASY','MEDIUM','HARD'][selectedLevel-1] + ' · VIDEO';
       document.getElementById('distance-text').textContent =
         `${String(Math.floor(videoModeRemaining / 60)).padStart(2,'0')}:${String(Math.floor(videoModeRemaining % 60)).padStart(2,'0')}`;
       document.getElementById('progress-bar-fill').style.width = '0%';
-      document.querySelector('#hud > div > div:first-child').classList.add('hidden');
+      document.querySelector('#hud > div > div:first-child').classList.remove('hidden');
       document.querySelector('#hud .flex.items-center.space-x-2.pointer-events-auto > div').classList.add('hidden');
       if (playerGroup) playerGroup.visible = false;
       camera.position.set(0, 3.8, 7.5);
@@ -2484,7 +2484,8 @@
       document.getElementById('distance-text').textContent =
         `${String(Math.floor(videoModeRemaining / 60)).padStart(2,'0')}:${String(Math.floor(videoModeRemaining % 60)).padStart(2,'0')}`;
       document.getElementById('progress-bar-fill').style.width = ((duration - videoModeRemaining) / duration * 100) + '%';
-      // Animate the floating food without collecting it or awarding points.
+      // Animate and collect healthy food when it reaches the camera's path.
+      // Video Mode awards points and plays the same reward sound as Virtual/AR.
       const t = clock.getElapsedTime();
       coins.forEach(c => {
         if (c.isHigh && c.group) {
@@ -2496,6 +2497,19 @@
           }
         } else if (c.mesh) {
           c.mesh.position.y = c.y + Math.sin(t * 4 + c.z) * 0.12;
+        }
+        if (!c.collected) {
+          const foodGap = travelZ - c.z;
+          const laneGap = Math.abs(videoLaneX - c.x);
+          if (Math.abs(foodGap) < 1.8 && laneGap < 1.15) {
+            c.collected = true;
+            if (c.group) c.group.visible = false;
+            if (c.mesh) c.mesh.visible = false;
+            score += c.scoreValue;
+            sound.playCoin();
+            createScorePopup((c.isHigh ? '⭐ +' : '+') + c.scoreValue, c.x, c.y, !!c.isHigh);
+            document.getElementById('score-text').textContent = score;
+          }
         }
       });
       if (videoModeRemaining <= 0) {
